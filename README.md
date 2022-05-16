@@ -12,7 +12,7 @@
 
 ### 🖥️ 源码
 
-1. 导入此仓库中的 `CowUpload/uploader.py` ：
+1. 导入此仓库中 `CowUpload/uploader.py` 的 `CowUploader` 类：
 
 ```
 from uploader import CowUploader
@@ -20,16 +20,22 @@ from uploader import CowUploader
 
 2. 创建对象并执行上传：
 
-```
-ul = CowUploader(
+```python
+upload_thread = CowUploader(
     authorization="___",    # 用户 authorization
     remember_mev2="___",    # 用户 remember-mev2
     upload_path="./test/",  # 待上传文件或目录路径，如果是目录将上传该目录里的所有文件
     valid_days=7,           # 传输有效期（单位：天数，默认 7 天）
     chunk_size=2097152,     # 分块大小（单位：字节，默认 2097152 字节，即 2 MB）
-    threads=5               # 上传线程数（默认 5）
+    threads=5               # 上传并发数（默认 5）
 )
-ul.start_upload()  # 执行上传
+upload_thread.start()  # 开始上传
+upload_thread.join()   # 等待完成
+if upload_thread.upload_info.get("complete", False):  # 判断结果
+    print(f"链接：{upload_thread.upload_info.get('uniqueurl')}\n"
+          f"口令：{upload_thread.upload_info.get('tempDownloadCode')}")
+else:
+    print("上传失败")
 ```
 
 3. 等待上传完成。

@@ -4,6 +4,7 @@ import time
 import base64
 import hashlib
 import requests
+import threading
 from tqdm import tqdm
 from urllib import parse
 from random import choices
@@ -14,7 +15,7 @@ from requests_toolbelt.multipart.encoder import MultipartEncoder
 user_agent = "Mozilla/5.0 DevOps; Transfer/1.1 (KHTML, like Gecko) Chrome/97.0"
 
 
-class CowUploader:
+class CowUploader(threading.Thread):
 
     def __init__(self, authorization: str, remember_mev2: str, upload_path: str, valid_days: int = 7,
                  chunk_size: int = 2097152, message: str = "", threads: int = 5):
@@ -27,7 +28,7 @@ class CowUploader:
         :param chunk_size: 分块大小（单位：字节，默认 2097152 字节，即 2 MB）
         :param threads: 上传线程数（默认 5）
         """
-
+        super(CowUploader, self).__init__()
         self.authorization = authorization
         self.remember_mev2 = remember_mev2
         self.upload_path = upload_path
@@ -42,6 +43,9 @@ class CowUploader:
         self.progress_bar_curr = None
         self.progress_bar_total = None
         self.executor = None
+
+    def run(self) -> str:
+        return self.start_upload()
 
     def start_upload(self):
         """执行上传"""
@@ -84,8 +88,8 @@ class CowUploader:
         self.progress_bar_total.disable = True
         self.progress_bar_total.close()
 
-        print(f"链接：{self.upload_info['uniqueurl']}")
-        print(f"取件码：{self.upload_info['tempDownloadCode']}")
+        return f"链接：{self.upload_info['uniqueurl']}\n" \
+               f"口令：{self.upload_info['tempDownloadCode']}"
 
     # 获取待上传文件列表
     def get_upload_file_list(self):
@@ -214,9 +218,8 @@ class CowUploader:
             self.err = f"Get upload id failed: {exc}"
             return False
 
-        # 上传
-        def put(part_num, chunk_bytes):
-            """上传"""
+        # Upload_chunk
+        def upload_chunk(part_num, put_bytes):
             while True:
                 put_url = f"https://upload.qiniup.com/buckets/cftransfer/objects" \
                           f"/{path_b64}/uploads/{upload_id}/{part_num}"
@@ -224,21 +227,21 @@ class CowUploader:
                 put_result = put_resp.json()
 
                 # 校验（MD5）
-                if put_result["md5"] == hashlib.md5(chunk_bytes).hexdigest():
-                    self.progress_bar_total.update(len(chunk_bytes))
-                    self.progress_bar_curr.update(len(chunk_bytes))
+                if put_result["md5"] == hashlib.md5(put_bytes).hexdigest():
+                    self.progress_bar_total.update(len(put_bytes))
+                    self.progress_bar_curr.update(len(put_bytes))
                     part_list.append({"etag": put_result["etag"], "partNumber": part_num})
                     return True
 
         # Add task
-        num, task_list, part_list = 0, [], []
+        chunk_id, task_list, part_list = 0, [], []
         self.executor = ThreadPoolExecutor(max_workers=self.threads)
         with open(file_info["abs_path"], "rb") as f:  # 流式上传
             while True:
-                num += 1
+                chunk_id += 1
                 chunk_bytes = f.read(self.chunk_size)
                 if len(chunk_bytes) != 0:
-                    task_list.append(self.executor.submit(put, num, chunk_bytes))
+                    task_list.append(self.executor.submit(upload_chunk, chunk_id, chunk_bytes))
                     while [task.done() for task in task_list].count(False) > self.threads * 2:
                         time.sleep(0.1)
                     continue
@@ -306,7 +309,7 @@ class CowUploader:
 
 
 if __name__ == '__main__':
-    ul = CowUploader(
+    upload_thread = CowUploader(
         authorization="___",    # 用户 authorization
         remember_mev2="___",    # 用户 remember-mev2
         upload_path="./test/",  # 待上传文件或目录路径，如果是目录将上传该目录里的所有文件
@@ -314,4 +317,10 @@ if __name__ == '__main__':
         chunk_size=2097152,     # 分块大小（单位：字节，默认 2097152 字节，即 2 MB）
         threads=5               # 上传线程数（默认 5）
     )
-    ul.start_upload()  # 执行上传
+    upload_thread.start()  # 开始上传
+    upload_thread.join()   # 等待完成
+    if upload_thread.upload_info.get("complete", False):  # 判断结果
+        print(f"链接：{upload_thread.upload_info.get('uniqueurl')}\n"
+              f"口令：{upload_thread.upload_info.get('tempDownloadCode')}")
+    else:
+        print("上传失败")
