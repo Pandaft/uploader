@@ -17,13 +17,15 @@ user_agent = "Mozilla/5.0 DevOps; Transfer/1.1 (KHTML, like Gecko) Chrome/97.0"
 
 class CowUploader(threading.Thread):
 
-    def __init__(self, authorization: str, remember_mev2: str, upload_path: str, valid_days: int = 7,
-                 chunk_size: int = 2097152, message: str = "", threads: int = 5):
+    def __init__(self, authorization: str, remember_mev2: str, upload_path: str, title: str = "",
+                 message: str = "", valid_days: int = 7, chunk_size: int = 2097152, threads: int = 5):
         """
         实例化对象
         :param authorization: 用户 authorization
         :param remember_mev2: 用户 remember-mev2
         :param upload_path: 待上传文件或目录路径，如果是目录将上传该目录里的所有文件
+        :param title: 传输标题（默认为空）
+        :param message: 传输描述（默认为空）
         :param valid_days: 传输有效期（单位：天数，默认 7 天）
         :param chunk_size: 分块大小（单位：字节，默认 2097152 字节，即 2 MB）
         :param threads: 上传线程数（默认 5）
@@ -32,9 +34,10 @@ class CowUploader(threading.Thread):
         self.authorization = authorization
         self.remember_mev2 = remember_mev2
         self.upload_path = upload_path
+        self.title = title
+        self.message = message
         self.valid_days = valid_days
         self.chunk_size = chunk_size
-        self.message = message
         self.threads = threads
 
         self.err = ""
@@ -132,7 +135,7 @@ class CowUploader(threading.Thread):
             """准备发送"""
             req_url = "https://cowtransfer.com/api/transfer/v2/preparesend"
             req_data = {
-                "name": "",
+                "name": self.title,
                 "totalSize": str(sum(f["file_size"] for f in self.upload_files.values())),
                 "message": self.message,
                 "notifyEmail": "",
@@ -313,9 +316,11 @@ if __name__ == '__main__':
         authorization="___",    # 用户 authorization
         remember_mev2="___",    # 用户 remember-mev2
         upload_path="./test/",  # 待上传文件或目录路径，如果是目录将上传该目录里的所有文件
+        title="",               # 传输标题（默认为空）
+        message="",             # 传输描述（默认为空）
         valid_days=7,           # 传输有效期（单位：天数，默认 7 天）
         chunk_size=2097152,     # 分块大小（单位：字节，默认 2097152 字节，即 2 MB）
-        threads=5               # 上传线程数（默认 5）
+        threads=5               # 上传并发数（默认 5）
     )
     upload_thread.start()  # 开始上传
     upload_thread.join()   # 等待完成

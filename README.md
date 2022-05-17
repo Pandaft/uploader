@@ -1,6 +1,6 @@
 # CowUploader
 
-批量上传文件到 [奶牛快传](https://cowtransfer.com/) ，支持分块并发上传。
+批量上传文件到 [奶牛快传（CowTransfer）](https://cowtransfer.com/) ，支持多线程和分块并发上传。
 
 <br />
 
@@ -25,6 +25,8 @@ upload_thread = CowUploader(
     authorization="___",    # 用户 authorization
     remember_mev2="___",    # 用户 remember-mev2
     upload_path="./test/",  # 待上传文件或目录路径，如果是目录将上传该目录里的所有文件
+    title="",               # 传输标题（默认为空）
+    message="",             # 传输描述（默认为空）
     valid_days=7,           # 传输有效期（单位：天数，默认 7 天）
     chunk_size=2097152,     # 分块大小（单位：字节，默认 2097152 字节，即 2 MB）
     threads=5               # 上传并发数（默认 5）
