@@ -226,7 +226,7 @@ class CowUploader(threading.Thread):
             while True:
                 put_url = f"https://upload.qiniup.com/buckets/cftransfer/objects" \
                           f"/{path_b64}/uploads/{upload_id}/{part_num}"
-                put_resp = self.new_request("PUT", put_url, chunk_bytes)
+                put_resp = self.new_request("PUT", put_url, put_bytes)
                 put_result = put_resp.json()
 
                 # 校验（MD5）
