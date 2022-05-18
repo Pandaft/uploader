@@ -41,14 +41,46 @@ class CowUploader(threading.Thread):
         self.threads = threads
 
         self.err = ""
+        self.status = "work"
         self.upload_info = {}
         self.upload_files = {}
         self.progress_bar_curr = None
         self.progress_bar_total = None
         self.executor = None
 
+    # 执行
     def run(self) -> str:
+        """执行"""
         return self.start_upload()
+
+    # 继续
+    def work(self):
+        """继续"""
+        self.status = "work"
+
+    # 暂停
+    def pause(self):
+        """暂停"""
+        self.status = "pause"
+
+    # 取消
+    def cancel(self):
+        """取消"""
+        self.status = "cancel"
+
+    # 动作
+    def action(self):
+        """动作"""
+        while self.status == "pause":
+            time.sleep(1)
+        if self.status == "cancel":
+            if any([self.progress_bar_curr, self.progress_bar_total]):
+                self.progress_bar_curr.clear()
+                self.progress_bar_curr.disable = True
+                self.progress_bar_curr.close()
+            self.err = "已取消上传"
+            return False
+        return True
 
     def start_upload(self):
         """执行上传"""
@@ -57,10 +89,14 @@ class CowUploader(threading.Thread):
         if not self.get_upload_file_list():
             print("遍历待上传文件或目录时发生错误：", self.err)
             return False
+        if not self.action():
+            return False
 
         # 初始化上传
         if not self.init_upload():
             print("初始化上传时发生错误：", self.err)
+            return False
+        if not self.action():
             return False
 
         # 进度条
@@ -79,9 +115,13 @@ class CowUploader(threading.Thread):
             self.progress_bar_curr.set_description(f"当前 {file_info['rel_path']}")
             if not self.upload_file(file_id):
                 print("上传失败：", self.err)
+            if not self.action():
+                return False
         self.progress_bar_curr.clear()
         self.progress_bar_curr.disable = True
         self.progress_bar_curr.close()
+        if not self.action():
+            return False
 
         # 完成上传
         if not self.complete():
@@ -90,6 +130,8 @@ class CowUploader(threading.Thread):
         self.progress_bar_total.clear()
         self.progress_bar_total.disable = True
         self.progress_bar_total.close()
+        if not self.action():
+            return False
 
         return f"链接：{self.upload_info['uniqueurl']}\n" \
                f"口令：{self.upload_info['tempDownloadCode']}"
@@ -224,6 +266,8 @@ class CowUploader(threading.Thread):
         # Upload_chunk
         def upload_chunk(part_num, put_bytes):
             while True:
+                if not self.action():
+                    return False
                 put_url = f"https://upload.qiniup.com/buckets/cftransfer/objects" \
                           f"/{path_b64}/uploads/{upload_id}/{part_num}"
                 put_resp = self.new_request("PUT", put_url, put_bytes)
@@ -233,6 +277,7 @@ class CowUploader(threading.Thread):
                 if put_result["md5"] == hashlib.md5(put_bytes).hexdigest():
                     self.progress_bar_total.update(len(put_bytes))
                     self.progress_bar_curr.update(len(put_bytes))
+                    self.upload_files[file_id]["uploaded_size"] += len(put_bytes)
                     part_list.append({"etag": put_result["etag"], "partNumber": part_num})
                     return True
 
@@ -323,6 +368,8 @@ if __name__ == '__main__':
         threads=5               # 上传并发数（默认 5）
     )
     upload_thread.start()  # 开始上传
+    # upload_thread.pause()  # 暂停上传
+    # upload_thread.work()   # 继续上传
     upload_thread.join()   # 等待完成
     if upload_thread.upload_info.get("complete", False):  # 判断结果
         print(f"链接：{upload_thread.upload_info.get('uniqueurl')}\n"
