@@ -315,6 +315,7 @@ class CowUploader(threading.Thread):
         }
         req_resp = self.new_multipart_request(rqe_url, req_data)
         if req_resp.json():
+            self.upload_files[file_id]["uploaded"] = True
             return True
         else:
             self.err = f"uploaded fail: {req_resp.text}"
