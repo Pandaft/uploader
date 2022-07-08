@@ -414,6 +414,6 @@ if __name__ == '__main__':
     upload_thread.start()  # 开始上传
     # upload_thread.pause()  # 暂停上传
     # upload_thread.work()   # 继续上传
-    upload_thread.join()  # 等待完成
+    upload_thread.join()  # 等待完成（阻塞直至完成）
     print(f"链接：{upload_thread.upload_info.get('transfer_url')}\n"
           f"口令：{upload_thread.upload_info.get('transfer_code')}")
