@@ -1,0 +1,4 @@
+oss2
+tqdm
+requests
+pyinstaller

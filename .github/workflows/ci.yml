@@ -1,0 +1,67 @@
+name: Build and release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs: 
+      upload_url: ${{ steps.create_release.outputs.upload_url }} 
+    
+    steps:
+      - name: Create Release
+        id: create_release
+        uses: ncipollo/release-action@v1.10.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          draft: false
+          prerelease: false
+          generateReleaseNotes: true
+
+  build:
+    name: Build
+    needs: release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-2019, ubuntu-20.04, macos-11.0]
+        python-version: [3.7]
+
+    steps:
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+
+    - name: Check out
+      uses: actions/checkout@v2
+
+    - name: Get release version
+      run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+
+    - name: Install dependencies
+      run: pip install -r requirements.txt
+
+    - name: Build
+      run: pyinstaller -F main.py -n uploader
+
+    - name: Package
+      working-directory: dist
+      run: tar -zcvf ../uploader_${{ matrix.os }}.tar.gz -c ./*
+    
+    - name: Upload assets
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.release.outputs.upload_url }}
+        asset_path: uploader_${{ matrix.os }}.tar.gz
+        asset_name: uploader_${{ matrix.os }}.tar.gz
+        asset_content_type: application/gzip
