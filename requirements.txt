@@ -2,4 +2,3 @@ oss2
 tqdm
 click
 requests
-pyinstaller

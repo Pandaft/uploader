@@ -11,9 +11,9 @@ jobs:
     permissions: write-all
     name: Create Release
     runs-on: ubuntu-latest
-    outputs: 
-      upload_url: ${{ steps.create_release.outputs.upload_url }} 
-    
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+
     steps:
       - name: Create Release
         id: create_release
@@ -44,11 +44,10 @@ jobs:
     - name: Check out
       uses: actions/checkout@v2
 
-    - name: Get release version
-      run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
-
     - name: Install dependencies
-      run: pip install -r requirements.txt
+      run: |
+        pip install -r requirements.txt
+        pip install pyinstaller
 
     - name: Build
       run: pyinstaller -F main.py -n uploader
