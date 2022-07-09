@@ -8,6 +8,7 @@ on:
 jobs:
 
   release:
+    permissions: write-all
     name: Create Release
     runs-on: ubuntu-latest
     outputs: 
@@ -25,6 +26,7 @@ jobs:
           generateReleaseNotes: true
 
   build:
+    permissions: write-all
     name: Build
     needs: release
     runs-on: ${{ matrix.os }}

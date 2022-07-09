@@ -374,6 +374,7 @@ class CowUploader(threading.Thread):
         resp = requests.post(url=bind_url, headers=self.headers, json=bind_data)
         resp_json = resp.json()
         self.upload_files[file_id]["content_id"] = resp_json["content_id"]
+        self.upload_files[file_id]["uploaded"] = True
         return True
 
     def uploaded(self):

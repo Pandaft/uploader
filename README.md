@@ -1,6 +1,6 @@
 # uploader
 
-一个上传文件的工具，支持多线程和分块并发上传，目前仅支持 [奶牛快传（CowTransfer）](https://cowtransfer.com/) ，后续可能会支持更多的网站。
+一个支持多线程、分块并发、批量上传文件的工具，目前仅支持 [奶牛快传（CowTransfer）](https://cowtransfer.com/) ，后续可能会支持更多的网站。
 
 <br />
 
@@ -8,7 +8,24 @@
 
 ### 🖥️ 命令行
 
-📌 计划未来支持。
+```shell
+> uploader cow --help
+Usage: uploader cow [OPTIONS]
+
+  奶牛快传
+
+Options:
+  --authorization TEXT  用户 authorization  [required]
+  --remember_mev2 TEXT  用户 remember-mev2  [required]
+  --upload_path TEXT    待上传文件或目录路径  [required]
+  --folder_name TEXT    文件夹名称
+  --title TEXT          传输标题
+  --message TEXT        传输描述
+  --valid_days INTEGER  传输有效期（天）  [default: 7]
+  --chunk_size INTEGER  分块大小（字节）  [default: 2097152]
+  --threads INTEGER     上传并发数  [default: 5]
+  --help                Show this message and exit.
+```
 
 ### 🖥️ 源码
 
