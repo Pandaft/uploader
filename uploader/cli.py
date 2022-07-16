@@ -1,10 +1,11 @@
 import click
 from .cowtransfer import CowUploader
+from .musetransfer import MuseUploader
 
 
 @click.group()
 def cli():
-    """uploader"""
+    """uploader - v0.1.0"""
     pass
 
 
@@ -19,12 +20,32 @@ def cli():
 @click.option("--chunk_size", type=int, prompt="分块大小（字节）", help="分块大小（字节）", default=2097152, show_default=True)
 @click.option("--threads", type=int, prompt="上传并发数", help="上传并发数", default=5, show_default=True)
 def cow(authorization, remember_mev2, upload_path, folder_name, title, message, valid_days, chunk_size, threads):
-    """奶牛快传"""
+    """CowTransfer - 奶牛快传"""
     thread = CowUploader(authorization, remember_mev2, upload_path, folder_name,
                          title, message, valid_days, chunk_size, threads)
     if thread.start_upload():
         click.echo(f"链接：{thread.upload_info.get('transfer_url')}\n"
                    f"口令：{thread.upload_info.get('transfer_code')}")
+    else:
+        click.echo(f"上传失败，{thread.err}")
+    return thread
+
+
+@cli.command()
+@click.option("--client_id", type=str, prompt="client_id", help="client_id", required=True)
+@click.option("--client_key", type=str, prompt="client_key", help="client_key", required=True)
+@click.option("--upload_path", type=str, prompt="待上传文件或目录路径", help="待上传文件或目录路径", required=True)
+@click.option("--title", type=str, prompt="分享链接的标题", help="分享链接的标题", default="untitled")
+@click.option("--password", type=str, prompt="分享链接的密码", help="分享链接的密码（4位数字，默认无密码）", default="")
+@click.option("--valid_days", type=int, prompt="传输有效期（天）", help="传输有效期（天）", default=7, show_default=True)
+@click.option("--chunk_size", type=int, prompt="分块大小（字节）", help="分块大小（字节）", default=2097152, show_default=True)
+@click.option("--threads", type=int, prompt="上传并发数", help="上传并发数", default=5, show_default=True)
+def muse(client_id, client_key, upload_path, title, password, valid_days, chunk_size, threads):
+    """MuseTransfer"""
+    thread = MuseUploader(client_id, client_key, upload_path, title,
+                         password, valid_days, chunk_size, threads)
+    if thread.start_upload():
+        click.echo(f"链接：{thread.upload_info.get('transfer_url')}")
     else:
         click.echo(f"上传失败，{thread.err}")
     return thread

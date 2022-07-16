@@ -1,65 +1,19 @@
 # uploader
 
-一个支持多线程、分块并发、批量上传文件的工具，目前仅支持 [奶牛快传（CowTransfer）](https://cowtransfer.com/) ，后续可能会支持更多的网站。
+一个支持多线程、分块并发、批量上传文件的工具。
 
-<br />
+## 支持
 
-## 使用
+- [CowTransfer（奶牛快传）](https://cowtransfer.com/)
+- [MuseTransfer](https://musetransfer.com/)
 
-### 🖥️ 命令行
+## 用法
 
-```shell
-> uploader cow --help
-Usage: uploader cow [OPTIONS]
+参考：[wiki](https://github.com/Aixzk/uploader/wiki)
 
-  奶牛快传
+- 可在 Release 中下载最新编译的对应平台的可执行文件，通过命令行的方式使用。
 
-Options:
-  --authorization TEXT  用户 authorization  [required]
-  --remember_mev2 TEXT  用户 remember-mev2  [required]
-  --upload_path TEXT    待上传文件或目录路径  [required]
-  --folder_name TEXT    文件夹名称
-  --title TEXT          传输标题
-  --message TEXT        传输描述
-  --valid_days INTEGER  传输有效期（天）  [default: 7]
-  --chunk_size INTEGER  分块大小（字节）  [default: 2097152]
-  --threads INTEGER     上传并发数  [default: 5]
-  --help                Show this message and exit.
-```
-
-### 🖥️ 源码
-
-1. 导入此仓库中 `uploader/cowtransfer.py` 的 `CowUploader` 类：
-
-```
-from uploader import CowUploader
-```
-
-2. 创建对象并执行上传：
-
-```python
-upload_thread = CowUploader(
-    authorization="___",    # 用户 authorization
-    remember_mev2="___",    # 用户 remember-mev2
-    upload_path="./test/",  # 待上传文件或目录路径，如果是目录将上传该目录里的所有文件
-    folder_name="test",     # 如果含有子文件夹，将所有文件上传至此文件夹中
-    title="",               # 传输标题（默认为空）
-    message="",             # 传输描述（默认为空）
-    valid_days=7,           # 传输有效期（单位：天数，默认 7 天）
-    chunk_size=2097152,     # 分块大小（单位：字节，默认 2097152 字节，即 2 MB）
-    threads=5               # 上传并发数（默认 5）
-)
-upload_thread.start()    # 开始上传
-# upload_thread.pause()  # 暂停上传
-# upload_thread.work()   # 继续上传
-upload_thread.join()     # 等待完成（阻塞直至完成）
-print(f"链接：{upload_thread.upload_info.get('transfer_url')}\n"
-      f"口令：{upload_thread.upload_info.get('transfer_code')}")
-```
-
-3. 等待上传完成。
-
-<br />
+- 也可通过实例化源码的上传类进行灵活的上传控制（暂停、继续、获取进度信息等）。
 
 ## 缘由
 
