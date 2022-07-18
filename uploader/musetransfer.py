@@ -265,6 +265,9 @@ class MuseUploader(threading.Thread):
 
         def close_progress_bar():
             """关闭进度条"""
+            self.progress_bar_total.clear()
+            self.progress_bar_total.disable = True
+            self.progress_bar_total.close()
             self.progress_bar_curr.clear()
             self.progress_bar_curr.disable = True
             self.progress_bar_curr.close()
@@ -284,6 +287,8 @@ class MuseUploader(threading.Thread):
         # 上传切片
         def upload_part(part_num, part_data):
             """上传切片"""
+            if not self.action():
+                return False
             upload_result = bucket.upload_part(
                 upl_path, upload_id, part_num, part_data
             )
@@ -295,6 +300,8 @@ class MuseUploader(threading.Thread):
 
         # 上传文件
         for file_id, file_info in self.file_dict.items():
+            if not self.action():
+                return False
             log(f"开始上传：{file_info['upl_path']}……")
             self.progress_bar_curr.reset(file_info["file_size"])
             self.progress_bar_curr.set_description(f"当前 {file_info['upl_path']}")
@@ -305,6 +312,8 @@ class MuseUploader(threading.Thread):
             self.executor = ThreadPoolExecutor(max_workers=self.threads)
             with open(file_info["abs_path"], "rb") as f:
                 while True:
+                    if not self.action():
+                        return False
                     chunk_id += 1
                     chunk_bytes = f.read(self.chunk_size)
                     if len(chunk_bytes) != 0:
@@ -337,6 +346,7 @@ class MuseUploader(threading.Thread):
                 self.err = f"上传文件 {file_info['upl_path']} 失败：{resp_json.get('message', '未知原因')}"
                 close_progress_bar()
                 return False
+            log(f"上传完成：{file_info['upl_path']}")
 
         close_progress_bar()
         return True
@@ -375,5 +385,6 @@ if __name__ == '__main__':
     upload_thread.start()  # 开始上传
     # upload_thread.pause()  # 暂停上传
     # upload_thread.work()   # 继续上传
+    # upload_thread.cancel()   # 取消上传
     upload_thread.join()  # 等待完成（阻塞直至完成）
     print(f"链接：{upload_thread.upload_info.get('transfer_url')}")

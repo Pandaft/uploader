@@ -18,8 +18,16 @@ def log(text: str) -> str:
 
 class CowUploader(threading.Thread):
 
-    def __init__(self, authorization: str, remember_mev2: str, upload_path: str, folder_name: str = "",
-                 title: str = "", message: str = "", valid_days: int = 7, chunk_size: int = 2097152, threads: int = 5):
+    def __init__(self,
+                 authorization: str,
+                 remember_mev2: str,
+                 upload_path: str,
+                 folder_name: str = "",
+                 title: str = "",
+                 message: str = "",
+                 valid_days: int = 7,
+                 chunk_size: int = 2097152,
+                 threads: int = 5):
         """
         实例化对象
         :param authorization: 用户 authorization
@@ -48,12 +56,12 @@ class CowUploader(threading.Thread):
         # 信息
         self.err = ""
         self.status = "work"
-        self.upload_files = {}
+        self.file_dict = {}
         self.upload_info = {
             "complete": False
         }
-        self.transfer_info = {}  # uniqueUrl, downloadCode
-        self.headers = {
+        self.transfer_info = {}
+        self.auth_headers = {
             "cookie": f"{self.remember_mev2}; cow-auth-token={self.authorization}",
             "authorization": self.authorization
         }
@@ -99,67 +107,34 @@ class CowUploader(threading.Thread):
 
     def start_upload(self):
         """执行上传"""
-
-        # 获取专属域名
-        log("获取专属域名……")
-        if not self.get_subdomain():
-            print("获取专属域名", self.err)
-            return False
-        log("获取专属域名完成")
-
-        # 初始化传输
-        log("初始化传输……")
-        if not self.init_transfer():
-            print("初始化传输", self.err)
-            return False
-        log("初始化传输完成")
-        if not self.action():
-            return False
-
-        # 初始化文件夹结构
-        log("初始化文件夹结构……")
-        if not self.init_folders():
-            print("初始化文件夹结构", self.err)
-            return False
-        log("初始化文件夹结构完成")
-        if not self.action():
-            return False
-
-        # 进度条
-        self.progress_bar_total = tqdm(
-            total=sum([f["file_size"] for f in self.upload_files.values()]),
-            desc="进度", mininterval=0.1, unit="B", unit_scale=True, unit_divisor=1024
-        )
-
-        # 遍历上传
-        self.progress_bar_curr = tqdm(
-            total=1, desc=f"当前", mininterval=0.1,
-            unit="B", unit_scale=True, unit_divisor=1024
-        )
-        for file_id, file_info in self.upload_files.items():
-            log(f"开始上传：{file_info['rel_path']}……")
-            self.progress_bar_curr.reset(file_info["file_size"])
-            self.progress_bar_curr.set_description(f"当前 {file_info['rel_path']}")
-            if not self.upload_file(file_id):
-                print("上传", self.err)
-            log(f"上传完成：{file_info['rel_path']}")
+        for step, func in [
+            ("检查", self.check),
+            ("获取专属域名", self.get_subdomain),
+            ("初始化传输", self.init_transfer),
+            ("初始化文件夹分片", self.init_folders),
+            ("上传文件", self.upload_file),
+            ("完成上传", self.finish),
+        ]:
+            log(f"{step}……")
+            if not func():
+                print(step, self.err)
+                return False
             if not self.action():
                 return False
-        self.progress_bar_curr.clear()
-        self.progress_bar_curr.disable = True
-        self.progress_bar_curr.close()
-        if not self.action():
+        return True
+
+    def check(self) -> bool:
+        """检查"""
+
+        # 缺少 remember_mev2 或 authorization
+        if not all([self.remember_mev2, self.authorization]):
+            self.err = "错误：缺少 remember_mev2 或 authorization"
             return False
 
-        # 完成上传
-        log("提交完成上传……")
-        if not self.uploaded():
-            print("提交完成上传", self.err)
-        log("提交完成上传完成")
-
-        self.progress_bar_total.clear()
-        self.progress_bar_total.disable = True
-        self.progress_bar_total.close()
+        # 待上传文件或目录
+        if not os.path.exists(self.upload_path):
+            self.err = "错误：待上传文件或目录不存在"
+            return False
 
         return True
 
@@ -167,7 +142,7 @@ class CowUploader(threading.Thread):
         """获取专属域名"""
         try:
             req_url = "https://cowtransfer.com/api/generic/v3/initial"
-            resp = requests.get(url=req_url, headers=self.headers)
+            resp = requests.get(url=req_url, headers=self.auth_headers)
             sub_domain = resp.json()["account"]["subDomain"]
             self.upload_info["url_prefix"] = f"https://{sub_domain}.cowtransfer.com/s/"
             return True
@@ -187,7 +162,7 @@ class CowUploader(threading.Thread):
                 "enablePreview": True,  # 允许预览
                 "enableSaveTo": True  # 允许转存
             }
-            req_resp = requests.post(url=req_url, headers=self.headers, json=req_json)
+            req_resp = requests.post(url=req_url, headers=self.auth_headers, json=req_json)
             resp_json = req_resp.json()
             if "code" in resp_json and resp_json["code"] == "0000":
                 self.transfer_info.update(resp_json["data"])
@@ -212,7 +187,7 @@ class CowUploader(threading.Thread):
         if os.path.isfile(self.upload_path):
             # 单文件
             self.upload_info["mode"] = "single"
-            self.upload_files["1"] = {
+            self.file_dict["1"] = {
                 "file_name": os.path.basename(self.upload_path),
                 "file_format": os.path.basename(self.upload_path).split(".")[-1] if "." in os.path.basename(self.upload_path) else "unknow",
                 "rel_path": "\\" + os.path.basename(self.upload_path),
@@ -232,7 +207,7 @@ class CowUploader(threading.Thread):
             root_path = os.path.abspath(self.upload_path)
             for root, dirs, files in os.walk(self.upload_path):
                 for file in files:
-                    self.upload_files[str(len(self.upload_files) + 1)] = {
+                    self.file_dict[str(len(self.file_dict) + 1)] = {
                         "file_name": os.path.basename(file),
                         "file_format": os.path.basename(file).split(".")[-1] if "." in os.path.basename(file) else "unknow",
                         "rel_path": os.path.abspath(os.path.join(root, file)).replace(root_path, ""),
@@ -271,7 +246,7 @@ class CowUploader(threading.Thread):
                 # 请求创建文件夹
                 req_url = "https://cowtransfer.com/core/api/dam/folders/0/dfs"
                 req_data = local_folder_structure
-                req_resp = requests.post(url=req_url, headers=self.headers, json=req_data)
+                req_resp = requests.post(url=req_url, headers=self.auth_headers, json=req_data)
                 resp_json = req_resp.json()
 
                 # 根文件夹ID
@@ -291,9 +266,9 @@ class CowUploader(threading.Thread):
 
                 # 绑定文件夹ID
                 for folder_path, folder_id in folder_id_dict.items():
-                    for file_id, file_info in self.upload_files.items():
+                    for file_id, file_info in self.file_dict.items():
                         if folder_path.replace(f"\\{self.folder_name}", "") in file_info["abs_path"]:
-                            self.upload_files[file_id]["folder_id"] = folder_id
+                            self.file_dict[file_id]["folder_id"] = folder_id
 
             except Exception as exc:
                 self.err = f"异常：{exc}"
@@ -302,87 +277,120 @@ class CowUploader(threading.Thread):
         return True
 
     # 上传文件
-    def upload_file(self, file_id):
+    def upload_file(self):
         """上传文件"""
 
-        file_info = self.upload_files[file_id]
-        self.progress_bar_total.set_description(f"进度 {file_id}/{len(self.upload_files)}")
-
-        # 获取凭证
-        req_url = "https://cowtransfer.com/core/api/filems/front/upload/tokens"
-        req_json = {
-            "file_format": file_info["file_format"]
-        }
-        req_resp = requests.post(url=req_url, headers=self.headers, json=req_json)
-        resp_json = req_resp.json()
-
-        # 初始化 bucket 对象
-        bucket = oss2.Bucket(
-            auth=oss2.StsAuth(
-                access_key_id=resp_json["access_key_id"],
-                access_key_secret=resp_json["access_key_secret"],
-                security_token=resp_json["security_token"]
-            ),
-            endpoint=resp_json["endpoint"],
-            bucket_name=resp_json["bucket_name"]
+        # 进度条
+        self.progress_bar_total = tqdm(
+            total=sum([f["file_size"] for f in self.file_dict.values()]),
+            desc="进度", mininterval=0.1, unit="B", unit_scale=True, unit_divisor=1024
+        )
+        self.progress_bar_curr = tqdm(
+            total=1, desc=f"当前", mininterval=0.1,
+            unit="B", unit_scale=True, unit_divisor=1024
         )
 
-        # 上传切片
-        def upload_part(part_num, part_data):
-            """上传切片"""
-            upload_result = bucket.upload_part(
-                upl_path, upload_id, part_num, part_data
-            )
-            self.progress_bar_total.update(len(part_data))
-            self.progress_bar_curr.update(len(part_data))
-            self.upload_files[file_id]["uploaded_size"] += len(part_data)
-            parts.append(PartInfo(part_num, upload_result.etag))
-            return True
+        def close_progress_bar():
+            """关闭进度条"""
+            self.progress_bar_total.clear()
+            self.progress_bar_total.disable = True
+            self.progress_bar_total.close()
+            self.progress_bar_curr.clear()
+            self.progress_bar_curr.disable = True
+            self.progress_bar_curr.close()
+            return
 
-        # 提交上传
-        upl_path = resp_json["object_name"]
-        upload_id = bucket.init_multipart_upload(upl_path).upload_id
-        parts = []
-        chunk_id, task_list = 0, []
-        self.executor = ThreadPoolExecutor(max_workers=self.threads)
-        with open(file_info["abs_path"], "rb") as f:  # 流式上传
-            while True:
-                chunk_id += 1
-                chunk_bytes = f.read(self.chunk_size)
-                if len(chunk_bytes) != 0:
-                    task_list.append(self.executor.submit(upload_part, chunk_id, chunk_bytes))
-                    while [task.done() for task in task_list].count(False) > self.threads * 2:
-                        time.sleep(0.1)
-                    continue
-                self.executor.shutdown()
-                break
-        bucket.complete_multipart_upload(upl_path, upload_id, parts)
+        # 遍历上传
+        for file_id, file_info in self.file_dict.items():
+            if not self.action():
+                return False
+            log(f"开始上传：{file_info['rel_path']}……")
+            self.progress_bar_curr.reset(file_info["file_size"])
+            self.progress_bar_curr.set_description(f"当前 {file_info['rel_path']}")
+            self.progress_bar_total.set_description(f"进度 {file_id}/{len(self.file_dict)}")
 
-        # 绑定文件
-        bind_url = "https://cowtransfer.com/core/api/dam/asset/files"
-        bind_data = {
-            "folder_id": file_info["folder_id"],
-            "file_md5": "",
-            "file_sha1": "",
-            "second_transmission": False,
-            "file_info": {
-                "origin_url": f"{resp_json['host']}/{resp_json['object_name']}",
-                "size": file_info["file_size"],
-                "title": file_info["file_name"]
+            # 获取凭证
+            req_url = "https://cowtransfer.com/core/api/filems/front/upload/tokens"
+            req_json = {
+                "file_format": file_info["file_format"]
             }
-        }
-        resp = requests.post(url=bind_url, headers=self.headers, json=bind_data)
-        resp_json = resp.json()
-        self.upload_files[file_id]["content_id"] = resp_json["content_id"]
-        self.upload_files[file_id]["uploaded"] = True
+            req_resp = requests.post(url=req_url, headers=self.auth_headers, json=req_json)
+            resp_json = req_resp.json()
+
+            # 初始化 bucket 对象
+            bucket = oss2.Bucket(
+                auth=oss2.StsAuth(
+                    access_key_id=resp_json["access_key_id"],
+                    access_key_secret=resp_json["access_key_secret"],
+                    security_token=resp_json["security_token"]
+                ),
+                endpoint=resp_json["endpoint"],
+                bucket_name=resp_json["bucket_name"]
+            )
+
+            # 上传分片
+            def upload_part(part_num, part_data):
+                """上传分片"""
+                if not self.action():
+                    return False
+                upload_result = bucket.upload_part(
+                    upl_path, upload_id, part_num, part_data
+                )
+                self.progress_bar_total.update(len(part_data))
+                self.progress_bar_curr.update(len(part_data))
+                self.file_dict[file_id]["uploaded_size"] += len(part_data)
+                parts.append(PartInfo(part_num, upload_result.etag))
+                return True
+
+            # 提交上传
+            upl_path = resp_json["object_name"]
+            upload_id = bucket.init_multipart_upload(upl_path).upload_id
+            parts = []
+            chunk_id, task_list = 0, []
+            self.executor = ThreadPoolExecutor(max_workers=self.threads)
+            with open(file_info["abs_path"], "rb") as f:
+                while True:
+                    if not self.action():
+                        return False
+                    chunk_id += 1
+                    chunk_bytes = f.read(self.chunk_size)
+                    if len(chunk_bytes) != 0:
+                        task_list.append(self.executor.submit(upload_part, chunk_id, chunk_bytes))
+                        while [task.done() for task in task_list].count(False) > self.threads * 2:
+                            time.sleep(0.1)
+                        continue
+                    self.executor.shutdown()
+                    break
+            bucket.complete_multipart_upload(upl_path, upload_id, parts)
+
+            # 绑定文件
+            bind_url = "https://cowtransfer.com/core/api/dam/asset/files"
+            bind_data = {
+                "folder_id": file_info["folder_id"],
+                "file_md5": "",
+                "file_sha1": "",
+                "second_transmission": False,
+                "file_info": {
+                    "origin_url": f"{resp_json['host']}/{resp_json['object_name']}",
+                    "size": file_info["file_size"],
+                    "title": file_info["file_name"]
+                }
+            }
+            resp = requests.post(url=bind_url, headers=self.auth_headers, json=bind_data)
+            resp_json = resp.json()
+            self.file_dict[file_id]["content_id"] = resp_json["content_id"]
+            self.file_dict[file_id]["uploaded"] = True
+            log(f"上传完成：{file_info['rel_path']}")
+
+        close_progress_bar()
         return True
 
-    def uploaded(self):
-        """上传完成"""
+    def finish(self):
+        """完成传输"""
         req_url = "https://cowtransfer.com/core/api/transfer/uploaded"
         if self.upload_info["mode"] in ["single", "multiple"]:
             req_json = {
-                "files": [file["content_id"] for file in self.upload_files.values()],
+                "files": [file["content_id"] for file in self.file_dict.values()],
                 "folders": [],
                 "guid": self.transfer_info["guid"]
             }
@@ -395,7 +403,7 @@ class CowUploader(threading.Thread):
         else:
             self.err = "错误：未定义的上传模式"
             return False
-        requests.post(url=req_url, headers=self.headers, json=req_json)
+        requests.post(url=req_url, headers=self.auth_headers, json=req_json)
         self.upload_info["complete"] = True
         return True
 
@@ -415,6 +423,7 @@ if __name__ == '__main__':
     upload_thread.start()  # 开始上传
     # upload_thread.pause()  # 暂停上传
     # upload_thread.work()   # 继续上传
+    # upload_thread.cancel()   # 取消上传
     upload_thread.join()  # 等待完成（阻塞直至完成）
     print(f"链接：{upload_thread.upload_info.get('transfer_url')}\n"
           f"口令：{upload_thread.upload_info.get('transfer_code')}")
