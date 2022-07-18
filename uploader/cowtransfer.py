@@ -144,6 +144,9 @@ class CowUploader(threading.Thread):
             req_url = "https://cowtransfer.com/api/generic/v3/initial"
             resp = requests.get(url=req_url, headers=self.auth_headers)
             sub_domain = resp.json()["account"]["subDomain"]
+            if not sub_domain:
+                self.upload_info["url_prefix"] = f"https://cowtransfer.com/s/"
+                return True
             self.upload_info["url_prefix"] = f"https://{sub_domain}.cowtransfer.com/s/"
             return True
         except Exception as exc:
