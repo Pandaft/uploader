@@ -8,6 +8,8 @@ from tqdm import tqdm
 from oss2.models import PartInfo
 from concurrent.futures import ThreadPoolExecutor
 
+requests.adapters.DEFAULT_RETRIES = 3
+
 debug = False
 
 
@@ -211,7 +213,8 @@ class MuseUploader(threading.Thread):
                 return False
             self.auth_headers = {
                 "Access-token": resp_json["result"]["access_token"],
-                "Token-type": resp_json["result"]["token_type"]
+                "Token-type": resp_json["result"]["token_type"],
+                "Connection": "close"
             }
             return True
         except Exception as exc:

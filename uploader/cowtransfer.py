@@ -7,6 +7,8 @@ from tqdm import tqdm
 from oss2.models import PartInfo
 from concurrent.futures import ThreadPoolExecutor
 
+requests.adapters.DEFAULT_RETRIES = 3
+
 debug = False
 
 
@@ -63,7 +65,8 @@ class CowUploader(threading.Thread):
         self.transfer_info = {}
         self.auth_headers = {
             "cookie": f"{self.remember_mev2}; cow-auth-token={self.authorization}",
-            "authorization": self.authorization
+            "authorization": self.authorization,
+            "Connection": "close"
         }
 
         # 对象
