@@ -92,13 +92,21 @@ class MuseUploader(threading.Thread):
         while self.status == "pause":
             time.sleep(1)
         if self.status == "cancel":
-            if any([self.progress_bar_curr, self.progress_bar_total]):
-                self.progress_bar_curr.clear()
-                self.progress_bar_curr.disable = True
-                self.progress_bar_curr.close()
+            self.close_progress_bar()
             self.err = "已取消上传"
             return False
         return True
+
+    def close_progress_bar(self):
+        """关闭进度条"""
+        if self.progress_bar_total:
+            self.progress_bar_total.clear()
+            self.progress_bar_total.disable = True
+            self.progress_bar_total.close()
+        if self.progress_bar_curr:
+            self.progress_bar_curr.clear()
+            self.progress_bar_curr.disable = True
+            self.progress_bar_curr.close()
 
     def start_upload(self):
         """执行上传"""
@@ -263,16 +271,6 @@ class MuseUploader(threading.Thread):
             unit="B", unit_scale=True, unit_divisor=1024
         )
 
-        def close_progress_bar():
-            """关闭进度条"""
-            self.progress_bar_total.clear()
-            self.progress_bar_total.disable = True
-            self.progress_bar_total.close()
-            self.progress_bar_curr.clear()
-            self.progress_bar_curr.disable = True
-            self.progress_bar_curr.close()
-            return
-
         # 初始化 bucket 对象
         bucket = oss2.Bucket(
             auth=oss2.StsAuth(
@@ -344,11 +342,11 @@ class MuseUploader(threading.Thread):
             resp_json = resp.json()
             if resp_json.get("code") != "0":
                 self.err = f"上传文件 {file_info['upl_path']} 失败：{resp_json.get('message', '未知原因')}"
-                close_progress_bar()
+                self.close_progress_bar()
                 return False
             log(f"上传完成：{file_info['upl_path']}")
 
-        close_progress_bar()
+        self.close_progress_bar()
         return True
 
     def finish(self):
