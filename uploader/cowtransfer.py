@@ -281,7 +281,7 @@ class CowUploader(threading.Thread):
                 # 绑定文件夹ID
                 for folder_path, folder_id in folder_id_dict.items():
                     for file_id, file_info in self.file_dict.items():
-                        if folder_path.replace(f"\\{self.folder_name}", "") in file_info["abs_path"]:
+                        if folder_path.replace(f"\\{self.folder_name}", "") in file_info["abs_path"].replace("/", "\\"):
                             self.file_dict[file_id]["folder_id"] = folder_id
 
             except Exception as exc:
