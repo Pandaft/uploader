@@ -326,7 +326,8 @@ class CowUploader(threading.Thread):
                     security_token=resp_json["security_token"]
                 ),
                 endpoint=resp_json["endpoint"],
-                bucket_name=resp_json["bucket_name"]
+                bucket_name=resp_json["bucket_name"],
+                enable_crc=False  # 开启后因校验占用大量资源而可能会导致上传速度严重下降
             )
 
             # 上传分片

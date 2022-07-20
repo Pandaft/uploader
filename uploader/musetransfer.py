@@ -279,7 +279,8 @@ class MuseUploader(threading.Thread):
                 security_token=self.transfer_info["upload_token"]["securityToken"]
             ),
             endpoint=self.transfer_info["upload_token"]["endpoint"],
-            bucket_name=self.transfer_info["upload_token"]["bucket"]
+            bucket_name=self.transfer_info["upload_token"]["bucket"],
+            enable_crc=False  # 开启后因校验占用大量资源而可能会导致上传速度严重下降
         )
 
         # 上传切片
