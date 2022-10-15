@@ -5,7 +5,7 @@ from .musetransfer import MuseUploader
 
 @click.group()
 def cli():
-    """uploader - v0.1.4"""
+    """uploader - v0.1.5"""
     pass
 
 

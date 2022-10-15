@@ -334,7 +334,7 @@ class MuseUploader(threading.Thread):
                     "filePathList": [
                         {
                             "etag": complete_result.etag,
-                            "fileName": file_info["upl_path"],
+                            "fileName": file_info["upl_path"].lstrip("\\"),
                             "path": upl_path
                         }
                     ],
